@@ -4,6 +4,8 @@ using System.Collections.Generic;
 
 public class Game : MonoBehaviour {
 	public Elevator elevator;
+	public Transform spawnPos;
+	public GUIText text;
 
 	private Location currLocation;
 	private bool arriving;
@@ -12,6 +14,8 @@ public class Game : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
+		text.text = "";
+
 		currLocation = GenerateLocation("rgb");
 		StartCoroutine(ArriveAtLocation(currLocation));
 	}
@@ -31,10 +35,10 @@ public class Game : MonoBehaviour {
 		if(Input.GetKeyDown(KeyCode.Space)){
 			bool passHas = elevator.PassengerHasLocation(input);
 			if(passHas && !elevator.IsPendingLocation(input)){
-				//Debug.Log("correct location "+input);
+				Debug.Log("correct location "+input);
 				elevator.pendingLocations.Add(input);
 			} else {
-				//Debug.Log("nope "+passHas+input);
+				Debug.Log("nope "+passHas+input);
 			}
 
 			input = "";
@@ -61,11 +65,10 @@ public class Game : MonoBehaviour {
 		List<Person> peopleToRemove = new List<Person>();
 		// check for people who need to leave
 		foreach(Person p in elevator.passengers){
-			if(p.desiredLocation == location.code){
-				Debug.Log(p+" is exiting");
+			if(p.destination == location.code){
 				peopleToRemove.Add(p);
 
-				yield return new WaitForSeconds(1f);
+				yield return StartCoroutine(PassengerExit(p));
 			}
 		}
 
@@ -75,38 +78,64 @@ public class Game : MonoBehaviour {
 		}
 
 		foreach(Person p in location.passengers){
-			yield return StartCoroutine(AnnounceDestination(p));
+			yield return StartCoroutine(PassengerEnter(p));
 		}
 
 		arriving = false;
 	}
 
-	public IEnumerator AnnounceDestination(Person p){
-		Debug.Log(p + " wants to go to " + p.desiredLocation);
+	public IEnumerator PassengerEnter(Person p){
 		elevator.passengers.Add(p);
-		// TODO this should be based on user input
-		//if(!elevator.pendingLocations.Contains(p.desiredLocation)){
-             //elevator.pendingLocations.Add(p.desiredLocation);
-		//}
+		p.targetPos = elevator.entrance.position;
+
+		while(!p.IsAtTargetPos()){
+			yield return null;
+		}
+
+		AnnounceDestination(p);
+
 		yield return new WaitForSeconds(2f);
+
+		text.text = "";
+
+		p.targetPos = elevator.FindEmptyPosition();
+	}
+
+	public IEnumerator PassengerExit(Person p){
+		Debug.Log(p+" is exiting");
+
+		p.targetPos = spawnPos.position;
+		while(!p.IsAtTargetPos()){
+			yield return null;
+		}
+	}
+
+	public void AnnounceDestination(Person p){
+		Debug.Log(p + " wants to go to " + p.destination);
+		text.text = p.destination;
 	}
 
 	public Location GenerateLocation(string code){
 		Location location = new Location();
 		location.code = code;
 
-		for(int i = 0; i < Random.Range(1, 3); i++){
-			location.passengers.Add(CreatePerson());
+		for(int i = 0; i < Random.Range(1, 10); i++){
+			Person p = CreatePerson(spawnPos.position);
+
+			location.passengers.Add(p);
 		}
 
 		return location;
 	}
 
-	public Person CreatePerson(){
+	public Person CreatePerson(Vector3 pos){
 		GameObject personGO = Instantiate(PrefabManager.instance.person) as GameObject;
 
 		Person person = personGO.GetComponent<Person>();
-		person.desiredLocation = GenerateLocationCode();
+		person.destination = GenerateLocationCode();
+		person.targetPos = null;
+
+		person.transform.position = pos;
 
 		return person;
 	}
@@ -121,5 +150,9 @@ public class Game : MonoBehaviour {
 			}
 		}
 		return code;
+	}
+
+	void OnGUI(){
+		GUILayout.Label(input);
 	}
 }
