@@ -1,0 +1,11 @@
+Library/*
+Temp/*
+obj/*
+builds/*
+shit/*
+
+*.swp
+*.suo
+*.csproj
+*.sln
+
